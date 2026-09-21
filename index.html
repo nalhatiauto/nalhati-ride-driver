@@ -235,10 +235,10 @@ const token = await getToken(messaging, {
         );
 
         alert(
-          "Notification চালু করতে সমস্যা হয়েছে।"
-        );
-      }
-    }
+      } catch (error) {
+  alert("FCM ERROR:\n" + error.name + "\n" + error.message);
+  console.error(error);
+}
 
 
     notifyBtn.onclick =
