@@ -8,7 +8,7 @@ firebase.initializeApp({
   projectId: "nalhati-ride",
   storageBucket: "nalhati-ride.firebasestorage.app",
   messagingSenderId: "1077953215118",
-  appId: "1:1077953215118:web:7d73eac073d30523dda7df",
+  appId: "1:1077953215118:web:7d73eac073d30523dda7df7",
   measurementId: "G-BPZT7JKDH7"
 });
 
@@ -17,15 +17,10 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log("Background notification:", payload);
 
-  const title =
-    payload.notification?.title || "🚕 Nalhati Ride";
+  const title = payload.notification?.title || "🚕 Nalhati Ride";
 
   const options = {
-    body:
-      payload.notification?.body ||
-      "নতুন Ride Booking এসেছে।",
-    icon: "/icon-192.png",
-    badge: "/icon-192.png"
+    body: payload.notification?.body || "নতুন Ride Booking এসেছে।"
   };
 
   self.registration.showNotification(title, options);
