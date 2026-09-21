@@ -4,13 +4,464 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nalhati Ride Driver</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f4f7;
+      margin: 0;
+      padding: 15px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 5px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .booking {
+      border-left: 5px solid #2196f3;
+    }
+
+    .row {
+      margin: 8px 0;
+    }
+
+    .label {
+      font-weight: bold;
+    }
+
+    input {
+      width: 100%;
+      padding: 11px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-top: 6px;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      margin-top: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .accept {
+      background: #2196f3;
+      color: white;
+    }
+
+    .fare {
+      background: #4caf50;
+      color: white;
+    }
+
+    .cancel {
+      background: #f44336;
+      color: white;
+    }
+
+    .empty {
+      text-align: center;
+      color: #777;
+      padding: 25px;
+    }
+
+    .status {
+      font-weight: bold;
+      color: #2196f3;
+    }
+  </style>
 </head>
 
 <body>
 
   <h1>🚕 Nalhati Ride Driver</h1>
+  <div class="subtitle">Driver Dashboard</div>
 
-  <p>Driver App তৈরি হচ্ছে...</p>
+  <div class="card">
+    <div><b>Driver:</b> Nalhati Ride Driver</div>
+    <div id="connection" class="status">Firebase সংযোগ হচ্ছে...</div>
+  </div>
+
+  <div id="bookings">
+    <div class="empty">বুকিং খোঁজা হচ্ছে...</div>
+  </div>
+
+  <script type="module">
+
+    import { initializeApp }
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+    import {
+      getAuth,
+      signInAnonymously,
+      onAuthStateChanged
+    }
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    import {
+      getFirestore,
+      collection,
+      onSnapshot,
+      doc,
+      updateDoc
+    }
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+
+    // Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyD4gHM7Gx061qBHSvK-JEQg0HW9EO5z84c",
+      authDomain: "nalhati-ride.firebaseapp.com",
+      projectId: "nalhati-ride",
+      storageBucket: "nalhati-ride.firebasestorage.app",
+      messagingSenderId: "1077953215118",
+      appId: "1:1077953215118:web:7d73eac073d30523dda7df",
+      measurementId: "G-BPZT7JKDH7"
+    };
+
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const bookingsDiv = document.getElementById("bookings");
+    const connectionDiv = document.getElementById("connection");
+
+
+    // Anonymous login
+    signInAnonymously(auth)
+      .catch(error => {
+        console.error(error);
+        connectionDiv.textContent =
+          "❌ Firebase Login হচ্ছে না";
+      });
+
+
+    onAuthStateChanged(auth, user => {
+
+      if (!user) return;
+
+      connectionDiv.textContent =
+        "🟢 Firebase Connected";
+
+      listenBookings();
+    });
+
+
+    // Booking দেখানো
+    function listenBookings() {
+
+      const ridesRef = collection(db, "rides");
+
+      onSnapshot(ridesRef, snapshot => {
+
+        const bookings = [];
+
+        snapshot.forEach(item => {
+
+          const data = item.data();
+
+          // নতুন / searching booking
+          if (
+            data.status === "searching" ||
+            data.status === "accepted"
+          ) {
+            bookings.push({
+              id: item.id,
+              ...data
+            });
+          }
+
+        });
+
+
+        if (bookings.length === 0) {
+
+          bookingsDiv.innerHTML =
+            `<div class="card empty">
+              এখন কোনো নতুন বুকিং নেই।
+            </div>`;
+
+          return;
+        }
+
+
+        bookingsDiv.innerHTML = "";
+
+
+        // নতুন বুকিং আগে
+        bookings.reverse();
+
+
+        bookings.forEach(ride => {
+
+          const card = document.createElement("div");
+
+          card.className = "card booking";
+
+
+          let fareText = "";
+
+          if (ride.fareStatus === "pending" || !ride.fare) {
+            fareText =
+              `<div class="row">
+                <span class="label">💰 ভাড়া:</span>
+                Driver ভাড়া জানাবেন
+              </div>`;
+          } else {
+            fareText =
+              `<div class="row">
+                <span class="label">💰 ভাড়া:</span>
+                ₹${ride.fare}
+              </div>`;
+          }
+
+
+          card.innerHTML = `
+
+            <div class="row">
+              <span class="label">👤 Passenger:</span>
+              ${ride.passengerName || "নাম নেই"}
+            </div>
+
+            <div class="row">
+              <span class="label">📞 ফোন:</span>
+              ${ride.phone || ride.passengerPhone || "নেই"}
+            </div>
+
+            <div class="row">
+              <span class="label">📍 From:</span>
+              ${ride.from || "নেই"}
+            </div>
+
+            <div class="row">
+              <span class="label">📍 To:</span>
+              ${ride.to || "নেই"}
+            </div>
+
+            <div class="row">
+              <span class="label">👥 Passenger:</span>
+              ${ride.passengers || 1} জন
+            </div>
+
+            ${
+              ride.date
+              ?
+              `<div class="row">
+                <span class="label">📅 Date:</span>
+                ${ride.date}
+              </div>`
+              : ""
+            }
+
+            ${
+              ride.time
+              ?
+              `<div class="row">
+                <span class="label">⏰ Time:</span>
+                ${ride.time}
+              </div>`
+              : ""
+            }
+
+            ${
+              ride.note
+              ?
+              `<div class="row">
+                <span class="label">📝 Note:</span>
+                ${ride.note}
+              </div>`
+              : ""
+            }
+
+            ${fareText}
+
+            <div id="buttons-${ride.id}"></div>
+          `;
+
+
+          bookingsDiv.appendChild(card);
+
+
+          const buttons =
+            document.getElementById(`buttons-${ride.id}`);
+
+
+          if (ride.status === "searching") {
+
+            const acceptBtn =
+              document.createElement("button");
+
+            acceptBtn.className = "accept";
+            acceptBtn.textContent = "✅ Accept Booking";
+
+            acceptBtn.onclick = () =>
+              acceptBooking(ride.id);
+
+            buttons.appendChild(acceptBtn);
+          }
+
+
+          if (
+            ride.type === "reserve" &&
+            ride.status === "accepted"
+          ) {
+
+            const fareInput =
+              document.createElement("input");
+
+            fareInput.type = "number";
+            fareInput.placeholder =
+              "Final Fare (₹)";
+
+            fareInput.min = "1";
+
+            buttons.appendChild(fareInput);
+
+
+            const fareBtn =
+              document.createElement("button");
+
+            fareBtn.className = "fare";
+            fareBtn.textContent =
+              "💰 Final Fare সেট করুন";
+
+            fareBtn.onclick = () =>
+              setFare(ride.id, fareInput.value);
+
+            buttons.appendChild(fareBtn);
+          }
+
+
+          if (ride.status === "accepted") {
+
+            const callBtn =
+              document.createElement("button");
+
+            callBtn.textContent = "📞 Passenger-কে Call";
+
+            callBtn.onclick = () => {
+
+              const phone =
+                ride.phone ||
+                ride.passengerPhone;
+
+              if (phone) {
+                window.location.href =
+                  "tel:" + phone;
+              }
+            };
+
+            buttons.appendChild(callBtn);
+          }
+
+        });
+
+      }, error => {
+
+        console.error(error);
+
+        connectionDiv.textContent =
+          "❌ Booking পড়তে সমস্যা হচ্ছে";
+
+      });
+
+    }
+
+
+    // Accept
+    async function acceptBooking(id) {
+
+      try {
+
+        await updateDoc(
+          doc(db, "rides", id),
+          {
+            status: "accepted",
+
+            driverName: "Nalhati Ride Driver",
+
+            driverPhone: "",
+
+            autoNumber: ""
+          }
+        );
+
+        alert("✅ Booking Accepted");
+
+      } catch (error) {
+
+        console.error(error);
+
+        alert(
+          "Booking Accept করা যাচ্ছে না। Firebase Rules পরীক্ষা করতে হবে।"
+        );
+      }
+
+    }
+
+
+    // Final fare
+    async function setFare(id, fare) {
+
+      fare = Number(fare);
+
+      if (!fare || fare <= 0) {
+
+        alert("সঠিক ভাড়া লিখুন।");
+        return;
+      }
+
+
+      try {
+
+        await updateDoc(
+          doc(db, "rides", id),
+          {
+            fare: fare,
+
+            fareStatus: "confirmed",
+
+            fareType: "driver_confirmed"
+          }
+        );
+
+        alert(
+          "✅ Final Fare ₹" + fare + " সেট হয়েছে"
+        );
+
+      } catch (error) {
+
+        console.error(error);
+
+        alert(
+          "ভাড়া সেট করা যাচ্ছে না। Firebase Rules পরীক্ষা করতে হবে।"
+        );
+      }
+
+    }
+
+  </script>
 
 </body>
 </html>
