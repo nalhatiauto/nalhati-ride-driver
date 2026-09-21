@@ -190,12 +190,14 @@
         }
 
 
-        const token = await getToken(messaging, {
+        const registration = await navigator.serviceWorker.register(
+  "/nalhati-ride-driver/firebase-messaging-sw.js"
+);
 
-          vapidKey:
-            "BPNApamcrhBWi21BnWP9JNg06-XhlqMRWugv-uEF7Dta1UsR7SAImCdmNyp8Jq36CcQZLqWmPU9GYJoFzE5UA4w"
-
-        });
+const token = await getToken(messaging, {
+  vapidKey: "BPNApamcrhBWi21BnWP9JNg06-XhlqMRWugv-uEF7Dta1UsR7SAImCdmNyp8Jq36CcQZLqWmPU9GYJoFzE5UA4w",
+  serviceWorkerRegistration: registration
+});
 
 
         console.log("FCM Token:", token);
