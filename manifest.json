@@ -1,0 +1,22 @@
+{
+  "name": "Nalhati Ride Driver",
+  "short_name": "Ride Driver",
+  "start_url": "/nalhati-ride-driver/",
+  "scope": "/nalhati-ride-driver/",
+  "display": "standalone",
+  "background_color": "#f2f4f7",
+  "theme_color": "#2196f3",
+  "description": "Nalhati Ride Driver App",
+  "icons": [
+    {
+      "src": "/nalhati-ride-driver/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/nalhati-ride-driver/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
