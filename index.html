@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>Nalhati Ride Driver</title>
 
   <style>
+
     body {
       font-family: Arial, sans-serif;
       background: #f2f4f7;
@@ -38,6 +40,7 @@
 
     .row {
       margin: 8px 0;
+      line-height: 1.4;
     }
 
     .label {
@@ -64,6 +67,10 @@
       cursor: pointer;
     }
 
+    button:disabled {
+      opacity: 0.7;
+    }
+
     .accept {
       background: #2196f3;
       color: white;
@@ -79,9 +86,15 @@
       color: white;
     }
 
+    .call {
+      background: #673ab7;
+      color: white;
+    }
+
     .status {
       font-weight: bold;
       color: #2196f3;
+      margin-top: 8px;
     }
 
     .empty {
@@ -89,40 +102,78 @@
       color: #777;
       padding: 25px;
     }
+
+    .error {
+      color: #d32f2f;
+      font-weight: bold;
+    }
+
   </style>
 </head>
 
 <body>
 
   <h1>🚕 Nalhati Ride Driver</h1>
-  <div class="subtitle">Driver Dashboard</div>
+
+  <div class="subtitle">
+    Driver Dashboard
+  </div>
+
+
+  <!-- Driver Status -->
 
   <div class="card">
-    <div><b>Driver:</b> Nalhati Ride Driver</div>
+
+    <div>
+      <b>Driver:</b> Nalhati Ride Driver
+    </div>
+
     <div id="connection" class="status">
       Firebase সংযোগ হচ্ছে...
     </div>
 
-    <button id="notifyBtn" class="notify">
+    <button
+      id="notifyBtn"
+      class="notify">
       🔔 Notification চালু করুন
     </button>
+
   </div>
 
+
+  <!-- Bookings -->
+
   <div id="bookings">
-    <div class="empty">বুকিং খোঁজা হচ্ছে...</div>
+
+    <div class="empty">
+      বুকিং খোঁজা হচ্ছে...
+    </div>
+
   </div>
+
 
   <script type="module">
 
-    import { initializeApp }
-      from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
+    // =====================================
+    // Firebase Imports
+    // =====================================
+
+    import {
+      initializeApp
+    }
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+
 
     import {
       getAuth,
       signInAnonymously,
       onAuthStateChanged
     }
-      from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
 
     import {
       getFirestore,
@@ -131,32 +182,71 @@
       doc,
       updateDoc
     }
-      from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
 
     import {
       getMessaging,
       getToken,
       onMessage
     }
-      from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
+    from
+      "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
 
+
+    // =====================================
+    // Firebase Configuration
+    // =====================================
 
     const firebaseConfig = {
-      apiKey: "AIzaSyD4gHM7Gx061qBHSvK-JEQg0HW9EO5z84c",
-      authDomain: "nalhati-ride.firebaseapp.com",
-      databaseURL: "https://nalhati-ride-default-rtdb.firebaseio.com",
-      projectId: "nalhati-ride",
-      storageBucket: "nalhati-ride.firebasestorage.app",
-      messagingSenderId: "1077953215118",
-      appId: "1:1077953215118:web:7d73eac073d30523dda7df",
-      measurementId: "G-BPZT7JKDH7"
+
+      apiKey:
+        "AIzaSyD4gHM7Gx061qBHSvK-JEQg0HW9EO5z84c",
+
+      authDomain:
+        "nalhati-ride.firebaseapp.com",
+
+      databaseURL:
+        "https://nalhati-ride-default-rtdb.firebaseio.com",
+
+      projectId:
+        "nalhati-ride",
+
+      storageBucket:
+        "nalhati-ride.firebasestorage.app",
+
+      messagingSenderId:
+        "1077953215118",
+
+      appId:
+        "1:1077953215118:web:7d73eac073d30523dda7df",
+
+      measurementId:
+        "G-BPZT7JKDH7"
     };
 
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const messaging = getMessaging(app);
+    // =====================================
+    // Firebase Start
+    // =====================================
+
+    const app =
+      initializeApp(firebaseConfig);
+
+    const auth =
+      getAuth(app);
+
+    const db =
+      getFirestore(app);
+
+    const messaging =
+      getMessaging(app);
+
+
+    // =====================================
+    // Elements
+    // =====================================
 
     const bookingsDiv =
       document.getElementById("bookings");
@@ -168,408 +258,761 @@
       document.getElementById("notifyBtn");
 
 
-    // =========================
+    // =====================================
     // Notification
-    // =========================
+    // =====================================
 
     async function enableNotifications() {
 
       try {
 
         if (!("Notification" in window)) {
-          alert("এই Browser Notification support করে না।");
+
+          alert(
+            "এই Browser Notification support করে না।"
+          );
+
           return;
         }
+
 
         const permission =
           await Notification.requestPermission();
 
+
         if (permission !== "granted") {
-          alert("🔕 Notification অনুমতি দেওয়া হয়নি।");
+
+          alert(
+            "🔕 Notification অনুমতি দেওয়া হয়নি।"
+          );
+
           return;
         }
 
 
-        const registration = await navigator.serviceWorker.register(
-  "/nalhati-ride-driver/firebase-messaging-sw.js"
-);
+        // Service Worker
 
-const token = await getToken(messaging, {
-  vapidKey: "BPNApamcrhBWi21BnWP9JNg06-XhlqMRWugv-uEF7Dta1UsR7SAImCdmNyp8Jq36CcQZLqWmPU9GYJoFzE5UA4w",
-  serviceWorkerRegistration: registration
-});
-
-
-        console.log("FCM Token:", token);
-
-
-        if (token) {
-
-          localStorage.setItem(
-            "nalhatiRideDriverFCMToken",
-            token
+        const registration =
+          await navigator.serviceWorker.register(
+            "/nalhati-ride-driver/firebase-messaging-sw.js"
           );
 
-          notifyBtn.textContent =
-            "🟢 Notification চালু আছে";
 
-          notifyBtn.disabled = true;
+        // FCM Token
 
-          alert(
-            "🔔 Driver Notification চালু হয়েছে!"
+        const token =
+          await getToken(
+            messaging,
+            {
+
+              vapidKey:
+                "BPNApamcrhBWi21BnWP9JNg06-XhlqMRWugv-uEF7Dta1UsR7SAImCdmNyp8Jq36CcQZLqWmPU9GYJoFzE5UA4w",
+
+              serviceWorkerRegistration:
+                registration
+
+            }
           );
 
-        } else {
+
+        console.log(
+          "FCM Token:",
+          token
+        );
+
+
+        if (!token) {
 
           alert(
             "FCM Token পাওয়া যায়নি।"
           );
 
+          return;
         }
 
-      } catch (error) {
+
+        // Token save
+
+        localStorage.setItem(
+          "nalhatiRideDriverFCMToken",
+          token
+        );
+
+
+        notifyBtn.textContent =
+          "🟢 Notification চালু আছে";
+
+
+        notifyBtn.disabled =
+          true;
+
+
+        alert(
+          "🔔 Driver Notification চালু হয়েছে!"
+        );
+
+
+      }
+
+      catch (error) {
 
         console.error(
-          "Notification error:",
+          "Notification Error:",
           error
         );
 
+
         alert(
-      } catch (error) {
-  alert("FCM ERROR:\n" + error.name + "\n" + error.message);
-  console.error(error);
-}
+          "FCM ERROR:\n\n" +
+          error.name +
+          "\n" +
+          error.message
+        );
+
+      }
+
+    }
 
 
     notifyBtn.onclick =
       enableNotifications;
 
 
-    // Foreground notification
-    onMessage(messaging, payload => {
+    // =====================================
+    // Foreground Notification
+    // =====================================
 
-      console.log(
-        "Foreground notification:",
-        payload
-      );
+    onMessage(
+      messaging,
+      payload => {
 
-
-      const title =
-        payload.notification?.title ||
-        "🚕 Nalhati Ride";
-
-
-      const body =
-        payload.notification?.body ||
-        "নতুন Ride Booking এসেছে।";
+        console.log(
+          "Foreground notification:",
+          payload
+        );
 
 
-      alert(
-        title + "\n\n" + body
-      );
-
-    });
+        const title =
+          payload.notification?.title ||
+          "🚕 Nalhati Ride";
 
 
-    // =========================
-    // Anonymous login
-    // =========================
+        const body =
+          payload.notification?.body ||
+          "নতুন Ride Booking এসেছে।";
+
+
+        if (
+          Notification.permission ===
+          "granted"
+        ) {
+
+          new Notification(
+            title,
+            {
+              body: body
+            }
+          );
+
+        }
+
+      }
+    );
+
+
+    // =====================================
+    // Anonymous Login
+    // =====================================
 
     signInAnonymously(auth)
 
       .catch(error => {
 
-        console.error(error);
+        console.error(
+          "Anonymous Login Error:",
+          error
+        );
+
 
         connectionDiv.textContent =
           "❌ Firebase Login হচ্ছে না";
 
+
+        connectionDiv.className =
+          "status error";
+
       });
 
 
-    onAuthStateChanged(auth, user => {
+    // =====================================
+    // Auth State
+    // =====================================
 
-      if (!user) return;
+    onAuthStateChanged(
+      auth,
+      user => {
 
-      connectionDiv.textContent =
-        "🟢 Firebase Connected";
-
-      listenBookings();
-
-    });
+        if (!user) {
+          return;
+        }
 
 
-    // =========================
-    // Booking দেখানো
-    // =========================
+        connectionDiv.textContent =
+          "🟢 Firebase Connected";
+
+
+        listenBookings();
+
+      }
+    );
+
+
+    // =====================================
+    // Booking Listener
+    // =====================================
+
+    let firstSnapshot =
+      true;
+
 
     function listenBookings() {
 
       const ridesRef =
-        collection(db, "rides");
+        collection(
+          db,
+          "rides"
+        );
 
 
       onSnapshot(
+
         ridesRef,
+
+
         snapshot => {
+
+
+          // =================================
+          // New Booking Notification
+          // =================================
+
+          if (!firstSnapshot) {
+
+            snapshot.docChanges()
+              .forEach(change => {
+
+                if (
+                  change.type === "added"
+                ) {
+
+                  const ride =
+                    change.doc.data();
+
+
+                  if (
+                    ride.status ===
+                    "searching"
+                  ) {
+
+                    const from =
+                      ride.from ||
+                      "Pickup";
+
+
+                    const to =
+                      ride.to ||
+                      "Destination";
+
+
+                    const passengers =
+                      ride.passengers ||
+                      1;
+
+
+                    const title =
+                      "🚕 নতুন Ride Booking";
+
+
+                    const body =
+                      from +
+                      " → " +
+                      to +
+                      "\n" +
+                      passengers +
+                      " জন Passenger";
+
+
+                    if (
+                      Notification.permission ===
+                      "granted"
+                    ) {
+
+                      new Notification(
+                        title,
+                        {
+                          body:
+                            body
+                        }
+                      );
+
+                    }
+
+                  }
+
+                }
+
+              });
+
+          }
+
+
+          firstSnapshot =
+            false;
+
+
+          // =================================
+          // Booking List
+          // =================================
 
           const bookings = [];
 
 
-          snapshot.forEach(item => {
+          snapshot.forEach(
+            item => {
 
-            const data = item.data();
+              const data =
+                item.data();
 
 
-            if (
-              data.status === "searching" ||
-              data.status === "accepted"
-            ) {
+              if (
+                data.status ===
+                "searching"
+                ||
+                data.status ===
+                "accepted"
+              ) {
 
-              bookings.push({
-                id: item.id,
-                ...data
-              });
+                bookings.push({
+
+                  id:
+                    item.id,
+
+                  ...data
+
+                });
+
+              }
 
             }
+          );
 
-          });
 
+          // =================================
+          // No Booking
+          // =================================
 
-          if (bookings.length === 0) {
+          if (
+            bookings.length === 0
+          ) {
 
             bookingsDiv.innerHTML =
-              `<div class="card empty">
+
+              `
+              <div class="card empty">
                 এখন কোনো নতুন বুকিং নেই।
-              </div>`;
+              </div>
+              `;
 
             return;
 
           }
 
 
-          bookingsDiv.innerHTML = "";
+          bookingsDiv.innerHTML =
+            "";
 
 
           bookings.reverse();
 
 
-          bookings.forEach(ride => {
+          // =================================
+          // Display Bookings
+          // =================================
 
-            const card =
-              document.createElement("div");
-
-            card.className =
-              "card booking";
-
-
-            let fareText = "";
+          bookings.forEach(
+            ride => {
 
 
-            if (
-              ride.fareStatus === "pending" ||
-              !ride.fare
-            ) {
-
-              fareText =
-                `<div class="row">
-                  <span class="label">💰 ভাড়া:</span>
-                  Driver ভাড়া জানাবেন
-                </div>`;
-
-            } else {
-
-              fareText =
-                `<div class="row">
-                  <span class="label">💰 ভাড়া:</span>
-                  ₹${ride.fare}
-                </div>`;
-
-            }
-
-
-            card.innerHTML = `
-
-              <div class="row">
-                <span class="label">👤 Passenger:</span>
-                ${ride.passengerName || "নাম নেই"}
-              </div>
-
-              <div class="row">
-                <span class="label">📞 ফোন:</span>
-                ${ride.phone ||
-                  ride.passengerPhone ||
-                  "নেই"}
-              </div>
-
-              <div class="row">
-                <span class="label">📍 From:</span>
-                ${ride.from || "নেই"}
-              </div>
-
-              <div class="row">
-                <span class="label">📍 To:</span>
-                ${ride.to || "নেই"}
-              </div>
-
-              <div class="row">
-                <span class="label">👥 Passenger:</span>
-                ${ride.passengers || 1} জন
-              </div>
-
-              ${
-                ride.date
-                ?
-                `<div class="row">
-                  <span class="label">📅 Date:</span>
-                  ${ride.date}
-                </div>`
-                : ""
-              }
-
-              ${
-                ride.time
-                ?
-                `<div class="row">
-                  <span class="label">⏰ Time:</span>
-                  ${ride.time}
-                </div>`
-                : ""
-              }
-
-              ${
-                ride.note
-                ?
-                `<div class="row">
-                  <span class="label">📝 Note:</span>
-                  ${ride.note}
-                </div>`
-                : ""
-              }
-
-              ${fareText}
-
-              <div id="buttons-${ride.id}"></div>
-            `;
-
-
-            bookingsDiv.appendChild(card);
-
-
-            const buttons =
-              document.getElementById(
-                `buttons-${ride.id}`
-              );
-
-
-            if (ride.status === "searching") {
-
-              const acceptBtn =
-                document.createElement("button");
-
-              acceptBtn.className =
-                "accept";
-
-              acceptBtn.textContent =
-                "✅ Accept Booking";
-
-              acceptBtn.onclick = () =>
-                acceptBooking(ride.id);
-
-              buttons.appendChild(
-                acceptBtn
-              );
-
-            }
-
-
-            if (
-              ride.type === "reserve" &&
-              ride.status === "accepted"
-            ) {
-
-              const fareInput =
-                document.createElement("input");
-
-              fareInput.type =
-                "number";
-
-              fareInput.placeholder =
-                "Final Fare (₹)";
-
-              fareInput.min = "1";
-
-              buttons.appendChild(
-                fareInput
-              );
-
-
-              const fareBtn =
-                document.createElement("button");
-
-              fareBtn.className =
-                "fare";
-
-              fareBtn.textContent =
-                "💰 Final Fare সেট করুন";
-
-              fareBtn.onclick = () =>
-                setFare(
-                  ride.id,
-                  fareInput.value
+              const card =
+                document.createElement(
+                  "div"
                 );
 
-              buttons.appendChild(
-                fareBtn
-              );
 
-            }
+              card.className =
+                "card booking";
 
 
-            if (
-              ride.status === "accepted"
-            ) {
+              // Fare
 
-              const callBtn =
-                document.createElement("button");
-
-              callBtn.textContent =
-                "📞 Passenger-কে Call";
+              let fareText =
+                "";
 
 
-              callBtn.onclick = () => {
+              if (
+                ride.fareStatus ===
+                "pending"
+                ||
+                !ride.fare
+              ) {
 
-                const phone =
-                  ride.phone ||
-                  ride.passengerPhone;
+                fareText =
+
+                  `
+                  <div class="row">
+                    <span class="label">
+                      💰 ভাড়া:
+                    </span>
+
+                    Driver ভাড়া জানাবেন
+                  </div>
+                  `;
+
+              }
+
+              else {
+
+                fareText =
+
+                  `
+                  <div class="row">
+                    <span class="label">
+                      💰 ভাড়া:
+                    </span>
+
+                    ₹${ride.fare}
+                  </div>
+                  `;
+
+              }
 
 
-                if (phone) {
+              // Booking Card
 
-                  window.location.href =
-                    "tel:" + phone;
+              card.innerHTML =
 
+                `
+
+                <div class="row">
+
+                  <span class="label">
+                    👤 Passenger:
+                  </span>
+
+                  ${ride.passengerName || "নাম নেই"}
+
+                </div>
+
+
+                <div class="row">
+
+                  <span class="label">
+                    📞 ফোন:
+                  </span>
+
+                  ${
+                    ride.phone ||
+                    ride.passengerPhone ||
+                    "নেই"
+                  }
+
+                </div>
+
+
+                <div class="row">
+
+                  <span class="label">
+                    📍 From:
+                  </span>
+
+                  ${ride.from || "নেই"}
+
+                </div>
+
+
+                <div class="row">
+
+                  <span class="label">
+                    📍 To:
+                  </span>
+
+                  ${ride.to || "নেই"}
+
+                </div>
+
+
+                <div class="row">
+
+                  <span class="label">
+                    👥 Passenger:
+                  </span>
+
+                  ${ride.passengers || 1}
+                  জন
+
+                </div>
+
+
+                ${
+                  ride.date
+                  ?
+                  `
+                  <div class="row">
+
+                    <span class="label">
+                      📅 Date:
+                    </span>
+
+                    ${ride.date}
+
+                  </div>
+                  `
+                  :
+                  ""
                 }
 
-              };
+
+                ${
+                  ride.time
+                  ?
+                  `
+                  <div class="row">
+
+                    <span class="label">
+                      ⏰ Time:
+                    </span>
+
+                    ${ride.time}
+
+                  </div>
+                  `
+                  :
+                  ""
+                }
 
 
-              buttons.appendChild(
-                callBtn
+                ${
+                  ride.note
+                  ?
+                  `
+                  <div class="row">
+
+                    <span class="label">
+                      📝 Note:
+                    </span>
+
+                    ${ride.note}
+
+                  </div>
+                  `
+                  :
+                  ""
+                }
+
+
+                ${fareText}
+
+
+                <div
+                  id="buttons-${ride.id}">
+                </div>
+
+                `;
+
+
+              bookingsDiv.appendChild(
+                card
               );
 
-            }
 
-          });
+              const buttons =
+                document.getElementById(
+                  `buttons-${ride.id}`
+                );
+
+
+              // =================================
+              // Accept
+              // =================================
+
+              if (
+                ride.status ===
+                "searching"
+              ) {
+
+                const acceptBtn =
+                  document.createElement(
+                    "button"
+                  );
+
+
+                acceptBtn.className =
+                  "accept";
+
+
+                acceptBtn.textContent =
+                  "✅ Accept Booking";
+
+
+                acceptBtn.onclick =
+                  () =>
+                    acceptBooking(
+                      ride.id
+                    );
+
+
+                buttons.appendChild(
+                  acceptBtn
+                );
+
+              }
+
+
+              // =================================
+              // Final Fare
+              // =================================
+
+              if (
+                ride.type ===
+                "reserve"
+                &&
+                ride.status ===
+                "accepted"
+              ) {
+
+                const fareInput =
+                  document.createElement(
+                    "input"
+                  );
+
+
+                fareInput.type =
+                  "number";
+
+
+                fareInput.placeholder =
+                  "Final Fare (₹)";
+
+
+                fareInput.min =
+                  "1";
+
+
+                buttons.appendChild(
+                  fareInput
+                );
+
+
+                const fareBtn =
+                  document.createElement(
+                    "button"
+                  );
+
+
+                fareBtn.className =
+                  "fare";
+
+
+                fareBtn.textContent =
+                  "💰 Final Fare সেট করুন";
+
+
+                fareBtn.onclick =
+                  () =>
+                    setFare(
+                      ride.id,
+                      fareInput.value
+                    );
+
+
+                buttons.appendChild(
+                  fareBtn
+                );
+
+              }
+
+
+              // =================================
+              // Call Passenger
+              // =================================
+
+              if (
+                ride.status ===
+                "accepted"
+              ) {
+
+                const callBtn =
+                  document.createElement(
+                    "button"
+                  );
+
+
+                callBtn.className =
+                  "call";
+
+
+                callBtn.textContent =
+                  "📞 Passenger-কে Call";
+
+
+                callBtn.onclick =
+                  () => {
+
+                    const phone =
+                      ride.phone ||
+                      ride.passengerPhone;
+
+
+                    if (phone) {
+
+                      window.location.href =
+                        "tel:" +
+                        phone;
+
+                    }
+
+                  };
+
+
+                buttons.appendChild(
+                  callBtn
+                );
+
+              }
+
+            });
 
         },
 
+
+        // ===================================
+        // Firestore Error
+        // ===================================
+
         error => {
 
-          console.error(error);
+          console.error(
+            "Firestore Error:",
+            error
+          );
+
 
           connectionDiv.textContent =
             "❌ Booking পড়তে সমস্যা হচ্ছে";
+
+
+          connectionDiv.className =
+            "status error";
 
         }
 
@@ -578,28 +1021,37 @@ const token = await getToken(messaging, {
     }
 
 
-    // =========================
+    // =====================================
     // Accept Booking
-    // =========================
+    // =====================================
 
-    async function acceptBooking(id) {
+    async function acceptBooking(
+      id
+    ) {
 
       try {
 
         await updateDoc(
 
-          doc(db, "rides", id),
+          doc(
+            db,
+            "rides",
+            id
+          ),
 
           {
 
-            status: "accepted",
+            status:
+              "accepted",
 
             driverName:
               "Nalhati Ride Driver",
 
-            driverPhone: "",
+            driverPhone:
+              "",
 
-            autoNumber: ""
+            autoNumber:
+              ""
 
           }
 
@@ -611,9 +1063,15 @@ const token = await getToken(messaging, {
         );
 
 
-      } catch (error) {
+      }
 
-        console.error(error);
+      catch (error) {
+
+        console.error(
+          "Accept Error:",
+          error
+        );
+
 
         alert(
           "Booking Accept করা যাচ্ছে না। Firebase Rules পরীক্ষা করতে হবে।"
@@ -624,19 +1082,23 @@ const token = await getToken(messaging, {
     }
 
 
-    // =========================
+    // =====================================
     // Final Fare
-    // =========================
+    // =====================================
 
     async function setFare(
       id,
       fare
     ) {
 
-      fare = Number(fare);
+      fare =
+        Number(fare);
 
 
-      if (!fare || fare <= 0) {
+      if (
+        !fare ||
+        fare <= 0
+      ) {
 
         alert(
           "সঠিক ভাড়া লিখুন।"
@@ -651,11 +1113,16 @@ const token = await getToken(messaging, {
 
         await updateDoc(
 
-          doc(db, "rides", id),
+          doc(
+            db,
+            "rides",
+            id
+          ),
 
           {
 
-            fare: fare,
+            fare:
+              fare,
 
             fareStatus:
               "confirmed",
@@ -675,9 +1142,15 @@ const token = await getToken(messaging, {
         );
 
 
-      } catch (error) {
+      }
 
-        console.error(error);
+      catch (error) {
+
+        console.error(
+          "Fare Error:",
+          error
+        );
+
 
         alert(
           "ভাড়া সেট করা যাচ্ছে না। Firebase Rules পরীক্ষা করতে হবে।"
@@ -686,6 +1159,7 @@ const token = await getToken(messaging, {
       }
 
     }
+
 
   </script>
 
