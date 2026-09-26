@@ -103,6 +103,11 @@
       color: white;
     }
 
+    .delete {
+      background: #7f1d1d;
+      color: white;
+    }
+
     .booking {
       border: 1px solid #ddd;
       border-radius: 12px;
@@ -197,6 +202,16 @@
       font-weight: bold;
     }
 
+    .cancelled {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 12px;
+      border-radius: 9px;
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
     .empty {
       text-align: center;
       color: #777;
@@ -228,8 +243,10 @@
   <h1>🚕 Nalhati Ride</h1>
   <div class="subtitle">Driver App</div>
 
+
   <!-- Firebase Status -->
   <div class="card">
+
     <div id="firebaseStatus" class="status offline">
       Firebase সংযোগ হচ্ছে...
     </div>
@@ -241,6 +258,7 @@
     <div id="driverId" class="driver-id">
       -
     </div>
+
   </div>
 
 
@@ -309,7 +327,8 @@
     onSnapshot,
     doc,
     updateDoc,
-    getDoc
+    getDoc,
+    deleteDoc
   }
     from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -357,17 +376,7 @@
   let liveLocationOn = false;
 
 
-  /*
-    আপাতত Driver-এর নাম।
-    পরে চাইলে Driver Profile থেকে পরিবর্তন করা যাবে।
-  */
-
   const DRIVER_NAME = "Nalhati Ride Driver";
-
-  /*
-    Driver phone এবং Auto Number
-    এখন খালি রাখা হয়েছে।
-  */
 
   const DRIVER_PHONE = "";
 
@@ -469,10 +478,14 @@
 
 
         /*
-          নতুন booking:
-          searching
+          Passenger Cancelled booking
+          Driver-এর জন্য আলাদাভাবে
+          দেখানো হবে।
 
-          নিজের booking:
+          Searching:
+          সব Driver দেখতে পারবে।
+
+          Driver-এর নিজের booking:
           fare_sent
           confirmed
           started
@@ -481,10 +494,22 @@
         const visibleRides =
           rides.filter((ride) => {
 
+            /* Passenger Cancelled */
+            if (
+              ride.status === "cancelled" &&
+              ride.cancelledBy === "passenger"
+            ) {
+              return true;
+            }
+
+
+            /* নতুন booking */
             if (ride.status === "searching") {
               return true;
             }
 
+
+            /* নিজের booking */
             if (
               ride.driverId === currentUser.uid &&
               (
@@ -496,14 +521,13 @@
               return true;
             }
 
+
             return false;
 
           });
 
 
-        /*
-          নতুন booking আগে দেখানো হবে।
-        */
+        /* নতুন booking আগে */
 
         visibleRides.sort((a, b) => {
 
@@ -552,7 +576,7 @@
 
       bookingsElement.innerHTML = `
         <div class="empty">
-          এখন কোনো নতুন Booking নেই।
+          এখন কোনো Booking নেই।
         </div>
       `;
 
@@ -674,20 +698,63 @@
 
 
       <div style="margin-top:10px;">
-        <div class="label">📝 Note</div>
+
+        <div class="label">
+          📝 Note
+        </div>
+
         <div class="value">
           ${escapeHtml(note)}
         </div>
+
       </div>
 
     `;
 
 
     /* =========================
+       PASSENGER CANCELLED
+    ========================== */
+
+    if (
+      ride.status === "cancelled" &&
+      ride.cancelledBy === "passenger"
+    ) {
+
+      html += `
+
+        <div class="cancelled">
+
+          ❌ Passenger এই Booking Cancel করেছেন
+
+        </div>
+
+        <div
+          class="small"
+          style="margin-top:10px;text-align:center;">
+
+          এই Booking আর চালানো যাবে না।
+
+        </div>
+
+        <button
+          class="delete"
+          onclick="deleteCancelledBooking('${ride.id}')">
+
+          🗑️ Delete
+
+        </button>
+
+      `;
+
+    }
+
+
+    /* =========================
        NEW SEARCHING BOOKING
     ========================== */
 
-    if (ride.status === "searching") {
+    else if (ride.status === "searching") {
 
       html += `
 
@@ -857,7 +924,9 @@
         <button
           class="gray"
           disabled>
+
           📞 Passenger-এর ফোন নেই
+
         </button>
       `;
 
@@ -877,6 +946,91 @@
     `;
 
   }
+
+
+  /* =========================
+     DELETE CANCELLED BOOKING
+  ========================== */
+
+  window.deleteCancelledBooking =
+    async function(rideId) {
+
+      if (!currentUser) return;
+
+
+      const confirmDelete =
+        confirm(
+          "Passenger এই Booking Cancel করেছেন।\n\nআপনি কি এই Booking Delete করতে চান?"
+        );
+
+
+      if (!confirmDelete) return;
+
+
+      try {
+
+        const rideRef =
+          doc(db, "rides", rideId);
+
+
+        const rideSnap =
+          await getDoc(rideRef);
+
+
+        if (!rideSnap.exists()) {
+
+          alert(
+            "এই Booking আর পাওয়া যাচ্ছে না।"
+          );
+
+          return;
+
+        }
+
+
+        const ride =
+          rideSnap.data();
+
+
+        /*
+          নিরাপত্তার জন্য আবার নিশ্চিত করা হচ্ছে
+          যে Passenger-ই Cancel করেছেন।
+        */
+
+        if (
+          ride.status !== "cancelled" ||
+          ride.cancelledBy !== "passenger"
+        ) {
+
+          alert(
+            "এই Booking এখন Delete করা যাবে না।"
+          );
+
+          return;
+
+        }
+
+
+        await deleteDoc(rideRef);
+
+
+        alert(
+          "🗑️ Cancelled Booking Delete হয়েছে।"
+        );
+
+      }
+
+      catch (error) {
+
+        console.error(error);
+
+        alert(
+          "❌ Booking Delete করা যায়নি।"
+        );
+
+      }
+
+    };
 
 
   /* =========================
@@ -909,13 +1063,9 @@
 
     try {
 
-      /*
-        Booking document আবার পড়ে
-        নিশ্চিত করা হচ্ছে যে এখনও searching আছে।
-      */
-
       const rideRef =
         doc(db, "rides", rideId);
+
 
       const rideSnap =
         await getDoc(rideRef);
@@ -923,7 +1073,9 @@
 
       if (!rideSnap.exists()) {
 
-        alert("Booking আর পাওয়া যাচ্ছে না।");
+        alert(
+          "Booking আর পাওয়া যাচ্ছে না।"
+        );
 
         return;
 
@@ -1003,11 +1155,6 @@
     if (!currentUser) return;
 
 
-    /*
-      Live Location চালু না থাকলে
-      আগে চালু করতে বলা হবে।
-    */
-
     if (!liveLocationOn) {
 
       const confirmStart =
@@ -1040,7 +1187,9 @@
 
       if (!rideSnap.exists()) {
 
-        alert("Booking পাওয়া যায়নি।");
+        alert(
+          "Booking পাওয়া যায়নি।"
+        );
 
         return;
 
@@ -1055,7 +1204,9 @@
         ride.driverId !== currentUser.uid
       ) {
 
-        alert("এই Booking আপনার নয়।");
+        alert(
+          "এই Booking আপনার নয়।"
+        );
 
         return;
 
@@ -1136,7 +1287,9 @@
 
       if (!rideSnap.exists()) {
 
-        alert("Booking পাওয়া যায়নি।");
+        alert(
+          "Booking পাওয়া যায়নি।"
+        );
 
         return;
 
@@ -1151,7 +1304,9 @@
         ride.driverId !== currentUser.uid
       ) {
 
-        alert("এই Booking আপনার নয়।");
+        alert(
+          "এই Booking আপনার নয়।"
+        );
 
         return;
 
@@ -1449,7 +1604,7 @@
 
 
       locationMessage.textContent =
-        "Passenger আর আপনার Live Location দেখতে পারবে না।";
+        "Passenger আর আপনার Live Location দেখতে পারবে না.";
 
 
       startLocationBtn.disabled =
@@ -1495,11 +1650,6 @@
   window.addEventListener(
     "beforeunload",
     () => {
-
-      /*
-        এখানে শুধু browser বন্ধ হওয়ার সময়
-        watch বন্ধ করা হচ্ছে।
-      */
 
       if (locationWatchId !== null) {
 
