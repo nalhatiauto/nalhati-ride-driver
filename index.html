@@ -368,7 +368,7 @@
 
   const realtimeDb = getDatabase(app);
   const vapidKey = "BPNApamcrhBWi21BnWP9JNg06-XhlqMRWugv-uEF7Dta1UsR7SAImCdmNyp8Jq36CcQZLqWmPU9GYJoFzE5UA4w";
-async function setupPushNotifications() {
+async function setupPushNotifications(driverId)  {
   try {
     const registration =
       await navigator.serviceWorker.register(
@@ -391,7 +391,7 @@ async function setupPushNotifications() {
       await set(
         ref(
           realtimeDb,
-          "drivers/" + currentUser.uid + "/fcmToken"
+          "drivers/" + driverId + "/fcmToken"
         ),
         token
       );
@@ -475,7 +475,7 @@ async function setupPushNotifications() {
 
     firebaseStatus.className =
       "status online";
-setupPushNotifications();
+  setupPushNotifications(user.uid);
     listenForBookings();
 
   });
