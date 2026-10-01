@@ -372,7 +372,7 @@ async function setupPushNotifications() {
   alert("FCM setup শুরু হয়েছে");
   try {
     const permission = await Notification.requestPermission();
-
+    alert("Permission result: " + permission);
     if (permission !== "granted") {
       console.log("Notification permission দেওয়া হয়নি।");
       return;
