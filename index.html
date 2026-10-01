@@ -369,6 +369,7 @@
   const realtimeDb = getDatabase(app);
   const vapidKey = "BPNApamcrhBWi21BnWP9JNg06-XhlqMRWugv-uEF7Dta1UsR7SAImCdmNyp8Jq36CcQZLqWmPU9GYJoFzE5UA4w";
 async function setupPushNotifications() {
+  alert("FCM setup শুরু হয়েছে");
   try {
     const permission = await Notification.requestPermission();
 
