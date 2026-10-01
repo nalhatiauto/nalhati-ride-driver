@@ -400,7 +400,8 @@ async function setupPushNotifications(driverId)  {
     }
 
   } catch (error) {
-    console.error("FCM setup failed:", error);
+  alert("FCM Error: " + error.message);
+  console.error("FCM setup failed:", error);
   }
   }
   let currentUser = null;
