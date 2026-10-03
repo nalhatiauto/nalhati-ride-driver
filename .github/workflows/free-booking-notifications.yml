@@ -11,6 +11,7 @@ permissions:
 jobs:
   notify:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,10 +20,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package.json
 
       - name: Install Firebase Admin SDK
         working-directory: functions
-        run: npm install --no-audit --no-fund
+        run: npm install --no-audit --no-fund --prefer-offline
 
       - name: Check new bookings and send notifications
         env:
