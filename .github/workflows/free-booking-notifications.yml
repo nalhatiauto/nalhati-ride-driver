@@ -27,6 +27,7 @@ jobs:
       - name: Check new bookings and send notifications
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules
         run: node scripts/notify-new-bookings.js
 
       - name: Save notification state
