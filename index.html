@@ -674,10 +674,24 @@ async function setupPushNotifications(driverId)  {
     const note =
       ride.note || "কোনো Note নেই";
 
+    const rideType =
+      ride.rideType === "reserve" || ride.type === "reserve"
+        ? "reserve"
+        : "share";
+
+    const rideTypeLabel =
+      rideType === "reserve"
+        ? "🚖 Reserve Ride — পুরো Auto শুধু এই Passenger-এর জন্য"
+        : "🚕 Share Ride — অন্য যাত্রীর সঙ্গে";
+
 
     let html = `
 
       <h3>👤 ${escapeHtml(passengerName)}</h3>
+
+      <div class="ride-type-badge" style="margin:8px 0;padding:10px;border-radius:9px;background:#f3f4f6;font-weight:bold;text-align:center;">
+        ${rideTypeLabel}
+      </div>
 
       <div class="route">
 
