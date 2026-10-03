@@ -1,0 +1,38 @@
+name: Free new booking notifications
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Firebase Admin SDK
+        working-directory: functions
+        run: npm install --no-audit --no-fund
+
+      - name: Check new bookings and send notifications
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/notify-new-bookings.js
+
+      - name: Save notification state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notification-state.json
+          git diff --cached --quiet || git commit -m "chore: update notification state"
+          git push
