@@ -34,7 +34,7 @@ async function getAccessToken() {
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   const auth = new GoogleAuth({
     credentials: serviceAccount,
-    scopes: ["https://www.googleapis.com/auth/cloud-platform"]
+    scopes: ["https://www.googleapis.com/auth/firebase.database", "https://www.googleapis.com/auth/cloud-platform"]
   });
   const client = await auth.getClient();
   const tokenResult = await client.getAccessToken();
@@ -116,8 +116,13 @@ async function getSearchingRides(accessToken) {
 async function getDriverTokens(accessToken) {
   console.log("Reading driver FCM tokens...");
   const response = await fetchWithTimeout(
-    DATABASE_URL + "/drivers.json?access_token=" + encodeURIComponent(accessToken),
-    { headers: { Accept: "application/json" } }
+    DATABASE_URL + "/drivers.json",
+    {
+      headers: {
+        Accept: "application/json",
+        Authorization: "Bearer " + accessToken
+      }
+    }
   );
 
   const text = await response.text();
