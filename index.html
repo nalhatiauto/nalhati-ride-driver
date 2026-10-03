@@ -373,12 +373,24 @@ import {
 
   const realtimeDb = getDatabase(app);
   const vapidKey = "BPNApamcrhBWi21BnWP9JNg06-XhlqMRWugv-uEF7Dta1UsR7SAImCdmNyp8Jq36CcQZLqWmPU9GYJoFzE5UA4w";
-async function setupPushNotifications(driverId)  {
+async function setupPushNotifications(driverId) {
   try {
-    const registration =
-      await navigator.serviceWorker.register(
-        "./firebase-messaging-sw.js"
-      );
+    if (!("Notification" in window)) {
+      throw new Error("এই ব্রাউজারে Notification support নেই");
+    }
+
+    if (Notification.permission === "default") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        throw new Error("Notification permission denied");
+      }
+    }
+
+    if (Notification.permission !== "granted") {
+      throw new Error("Notification permission denied. Chrome Site Settings-এ Notifications Allow করুন।");
+    }
+
+    const registration = await navigator.serviceWorker.register("./firebase-messaging-sw.js");
 
     const token = await getToken(messaging, {
       vapidKey: vapidKey,
@@ -394,29 +406,27 @@ async function setupPushNotifications(driverId)  {
 
     if (currentUser) {
       try {
-        await set(
-          ref(
-            realtimeDb,
-            "drivers/" + driverId + "/fcmToken"
-          ),
-          token
-        );
+        await set(ref(realtimeDb, "drivers/" + driverId + "/fcmToken"), token);
       } catch (rtdbError) {
         console.warn("Realtime Database token save skipped:", rtdbError.message);
       }
 
-      await setDoc(
-        doc(db, "drivers", driverId),
-        { fcmToken: token },
-        { merge: true }
-      );
+      try {
+        await setDoc(
+          doc(db, "drivers", driverId),
+          { fcmToken: token },
+          { merge: true }
+        );
+      } catch (firestoreError) {
+        console.warn("Firestore token save skipped:", firestoreError.message);
+      }
 
-      console.log("FCM Token Firestore-এ সংরক্ষণ হয়েছে");
+      console.log("FCM Token প্রস্তুত হয়েছে");
     }
 
   } catch (error) {
-  alert("FCM Error: " + error.message);
-  console.error("FCM setup failed:", error);
+    alert("FCM Error: " + error.message);
+    console.error("FCM setup failed:", error);
   }
   }
   let currentUser = null;
