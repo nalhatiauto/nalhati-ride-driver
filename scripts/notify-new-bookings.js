@@ -5,7 +5,7 @@ const PROJECT_ID = "nalhati-ride";
 const DATABASE_URL = "https://nalhati-ride-default-rtdb.firebaseio.com";
 const FCM_URL = "https://fcm.googleapis.com/v1/projects/nalhati-ride/messages:send";
 const statePath = "notification-state.json";
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 10000;
 
 function readLastRun() {
   try {
@@ -196,7 +196,14 @@ async function main() {
   console.log("Looking for rides created after:", lastRun.toISOString());
 
   const accessToken = await getAccessToken();
-  const allRides = await getSearchingRides(accessToken);
+  let allRides = [];
+  try {
+    allRides = await getSearchingRides(accessToken);
+  } catch (error) {
+    console.error("Firestore check failed:", error.message);
+    console.log("Skipping this run without changing notification state.");
+    process.exit(1);
+  }
 
   const rides = allRides.filter(ride => {
     const created = ride.createdAt instanceof Date
