@@ -330,6 +330,7 @@ import {
     onSnapshot,
     doc,
     updateDoc,
+    setDoc,
     getDoc,
     deleteDoc
   }
@@ -398,6 +399,12 @@ async function setupPushNotifications(driverId)  {
           "drivers/" + driverId + "/fcmToken"
         ),
         token
+      );
+
+      await setDoc(
+        doc(db, "drivers", driverId),
+        { fcmToken: token },
+        { merge: true }
       );
 
       console.log("FCM Token Firebase-এ সংরক্ষণ হয়েছে");
