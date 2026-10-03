@@ -107,34 +107,43 @@ async function getSearchingRides(accessToken) {
 }
 
 async function getDriverTokens(accessToken) {
-  console.log("Reading driver FCM tokens...");
-  const response = await fetchWithTimeout(
-    DATABASE_URL + "/drivers.json",
-    {
+  console.log("Reading driver FCM tokens from Firestore...");
+  const baseUrl = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
+    "/databases/(default)/documents/drivers";
+  let url = baseUrl + "?pageSize=100";
+  const drivers = [];
+
+  while (url) {
+    const response = await fetchWithTimeout(url, {
       headers: {
-        Accept: "application/json",
-        Authorization: "Bearer " + accessToken
+        Authorization: "Bearer " + accessToken,
+        Accept: "application/json"
+      }
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error("Firestore drivers REST error " + response.status + ": " + text.slice(0, 500));
+    }
+
+    const data = text ? JSON.parse(text) : {};
+    for (const doc of data.documents || []) {
+      const fields = doc.fields || {};
+      const token = firestoreString(fields.fcmToken);
+      if (token.trim()) {
+        drivers.push({
+          driverId: doc.name.split("/").pop(),
+          token: token.trim()
+        });
       }
     }
-  );
 
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error("Realtime Database REST error " + response.status + ": " + text.slice(0, 500));
+    const next = data.nextPageToken;
+    url = next ? baseUrl + "?pageSize=100&pageToken=" + encodeURIComponent(next) : "";
   }
 
-  const drivers = text && text !== "null" ? JSON.parse(text) : {};
-  const tokens = [];
-
-  for (const [driverId, driver] of Object.entries(drivers || {})) {
-    const token = driver?.fcmToken;
-    if (typeof token === "string" && token.trim()) {
-      tokens.push({ driverId, token: token.trim() });
-    }
-  }
-
-  console.log("Driver FCM tokens found:", tokens.length);
-  return tokens;
+  console.log("Driver FCM tokens found:", drivers.length);
+  return drivers;
 }
 
 async function sendNotification(accessToken, ride, token) {
