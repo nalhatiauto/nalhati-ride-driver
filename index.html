@@ -393,13 +393,17 @@ async function setupPushNotifications(driverId)  {
     console.log("FCM Token তৈরি হয়েছে");
 
     if (currentUser) {
-      await set(
-        ref(
-          realtimeDb,
-          "drivers/" + driverId + "/fcmToken"
-        ),
-        token
-      );
+      try {
+        await set(
+          ref(
+            realtimeDb,
+            "drivers/" + driverId + "/fcmToken"
+          ),
+          token
+        );
+      } catch (rtdbError) {
+        console.warn("Realtime Database token save skipped:", rtdbError.message);
+      }
 
       await setDoc(
         doc(db, "drivers", driverId),
@@ -407,7 +411,7 @@ async function setupPushNotifications(driverId)  {
         { merge: true }
       );
 
-      console.log("FCM Token Firebase-এ সংরক্ষণ হয়েছে");
+      console.log("FCM Token Firestore-এ সংরক্ষণ হয়েছে");
     }
 
   } catch (error) {
