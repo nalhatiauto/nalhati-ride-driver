@@ -10,7 +10,6 @@ admin.initializeApp({
 const db = admin.firestore();
 const rtdb = admin.database();
 const messaging = admin.messaging();
-
 const statePath = "notification-state.json";
 
 function readLastRun() {
@@ -29,29 +28,31 @@ async function main() {
   const lastRun = readLastRun();
   const now = new Date();
 
-  const snapshot = await db.collection("rides")
-    .where("createdAt", ">", admin.firestore.Timestamp.fromDate(lastRun))
-    .orderBy("createdAt", "asc")
-    .get();
+  console.log("Checking Firestore for new searching rides since:", lastRun.toISOString());
+  const snapshot = await db.collection("rides").where("status", "==", "searching").get();
+  console.log("Firestore returned", snapshot.size, "searching ride(s).");
 
   const rides = snapshot.docs
     .map(doc => ({ id: doc.id, ...doc.data() }))
-    .filter(ride => ride.status === "searching");
+    .filter(ride => {
+      const created = ride.createdAt?.toDate ? ride.createdAt.toDate() : new Date(ride.createdAt);
+      return created > lastRun && created <= now;
+    });
 
+  console.log("New rides to notify:", rides.length);
+
+  console.log("Reading driver FCM tokens...");
   const driversSnapshot = await rtdb.ref("drivers").get();
   const tokens = [];
-  const tokenByDriver = {};
 
   if (driversSnapshot.exists()) {
     driversSnapshot.forEach(driver => {
       const token = driver.child("fcmToken").val();
-      if (typeof token === "string" && token.trim()) {
-        const clean = token.trim();
-        tokens.push(clean);
-        tokenByDriver[driver.key] = clean;
-      }
+      if (typeof token === "string" && token.trim()) tokens.push(token.trim());
     });
   }
+
+  console.log("Driver FCM tokens found:", tokens.length);
 
   if (rides.length && tokens.length) {
     for (const ride of rides) {
@@ -82,11 +83,12 @@ async function main() {
 
       for (let i = 0; i < tokens.length; i += 500) {
         const chunk = tokens.slice(i, i + 500);
+        console.log("Sending notification for ride", ride.id, "to", chunk.length, "token(s)...");
         const response = await messaging.sendEachForMulticast({
           ...messageBase,
           tokens: chunk
         });
-        console.log("Ride", ride.id, "notification:", response.successCount, "success,", response.failureCount, "failed");
+        console.log("Notification result:", response.successCount, "success,", response.failureCount, "failed");
 
         const invalid = [];
         response.responses.forEach((result, index) => {
@@ -105,18 +107,17 @@ async function main() {
             const token = driver.child("fcmToken").val();
             if (invalid.includes(token)) updates[driver.key + "/fcmToken"] = null;
           });
-          if (Object.keys(updates).length) {
-            await rtdb.ref("drivers").update(updates);
-          }
+          if (Object.keys(updates).length) await rtdb.ref("drivers").update(updates);
         }
       }
     }
   }
 
   writeLastRun(now);
+  console.log("Notification check completed successfully.");
 }
 
 main().catch(error => {
-  console.error(error);
+  console.error("Notification worker failed:", error);
   process.exit(1);
 });
