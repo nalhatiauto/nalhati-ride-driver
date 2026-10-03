@@ -74,40 +74,33 @@ function documentToRide(doc) {
 
 async function getSearchingRides(accessToken) {
   console.log("Checking Firestore for new searching rides...");
-  const url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
-    "/databases/(default)/documents:runQuery";
+  const baseUrl = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
+    "/databases/(default)/documents/rides";
+  let url = baseUrl + "?pageSize=100";
+  const rides = [];
 
-  const body = {
-    structuredQuery: {
-      from: [{ collectionId: "rides" }],
-      where: {
-        fieldFilter: {
-          field: { fieldPath: "status" },
-          op: "EQUAL",
-          value: { stringValue: "searching" }
-        }
+  while (url) {
+    const response = await fetchWithTimeout(url, {
+      headers: {
+        Authorization: "Bearer " + accessToken,
+        Accept: "application/json"
       }
+    });
+
+    const text = await response.text();
+    if (!response.ok) {
+      throw new Error("Firestore REST error " + response.status + ": " + text.slice(0, 500));
     }
-  };
 
-  const response = await fetchWithTimeout(url, {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + accessToken,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+    const data = text ? JSON.parse(text) : {};
+    for (const doc of data.documents || []) {
+      const ride = documentToRide(doc);
+      if (ride.status === "searching") rides.push(ride);
+    }
 
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error("Firestore REST error " + response.status + ": " + text.slice(0, 500));
+    const next = data.nextPageToken;
+    url = next ? baseUrl + "?pageSize=100&pageToken=" + encodeURIComponent(next) : "";
   }
-
-  const rows = JSON.parse(text);
-  const rides = rows
-    .filter(row => row.document)
-    .map(row => documentToRide(row.document));
 
   console.log("Firestore returned", rides.length, "searching ride(s).");
   return rides;
