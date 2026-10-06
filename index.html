@@ -364,7 +364,7 @@ import {
   ========================== */
 
   const app = initializeApp(firebaseConfig);
-  const messaging = getMessaging(app);
+  let messaging = null;
   let pushRegistration = null;
 
   const auth = getAuth(app);
@@ -541,7 +541,13 @@ async function setupPushNotifications(driverId) {
 
   onAuthStateChanged(auth, (user) => {
 
-    if (!user) return;
+    if (!user) {
+      firebaseStatus.textContent =
+        "🔴 Firebase Login ব্যর্থ";
+      firebaseStatus.className =
+        "status offline";
+      return;
+    }
 
     currentUser = user;
 
@@ -553,9 +559,18 @@ async function setupPushNotifications(driverId) {
 
     firebaseStatus.className =
       "status online";
-  setupPushNotifications(user.uid);
+
+    // Notification setup is separate so a notification problem
+    // can never stop Firebase login or booking connection.
+    setupPushNotifications(user.uid);
     listenForBookings();
 
+  }, (error) => {
+    console.error("Firebase Auth error:", error);
+    firebaseStatus.textContent =
+      "🔴 Firebase সংযোগ ব্যর্থ";
+    firebaseStatus.className =
+      "status offline";
   });
 
 
