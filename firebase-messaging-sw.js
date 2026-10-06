@@ -30,7 +30,7 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const targetUrl = new URL("./", self.location.origin).href;
+  const targetUrl = "https://nalhatiauto.github.io/nalhati-ride-driver/";
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
