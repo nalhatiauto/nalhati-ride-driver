@@ -434,7 +434,7 @@ async function setupPushNotifications(driverId) {
 
   } catch (error) {
 
-    alert("FCM Error: " + error.message);
+    console.warn("FCM setup failed; Firebase/booking remains active:", error.message);
     console.error("FCM setup failed:", error);
   }
   }
