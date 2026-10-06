@@ -364,7 +364,7 @@ import {
   ========================== */
 
   const app = initializeApp(firebaseConfig);
-  const messaging = getMessaging(app);
+  const messaging = getMessaging(app);\n  let pushRegistration = null;
 
   const auth = getAuth(app);
 
@@ -459,16 +459,24 @@ async function setupPushNotifications(driverId) {
       (ride.to || "Drop Point");
 
     try {
-      const notification = new Notification(title, {
-        body: body,
-        tag: "booking-" + ride.id,
-        requireInteraction: true
-      });
+      if (pushRegistration && "showNotification" in pushRegistration) {
+        pushRegistration.showNotification(title, {
+          body: body,
+          tag: "booking-" + ride.id,
+          requireInteraction: true
+        });
+      } else {
+        const notification = new Notification(title, {
+          body: body,
+          tag: "booking-" + ride.id,
+          requireInteraction: true
+        });
 
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      }
     } catch (error) {
       console.warn("Immediate notification failed:", error);
     }
