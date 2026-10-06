@@ -5,6 +5,7 @@ const PROJECT_ID = "nalhati-ride";
 const DATABASE_URL = "https://nalhati-ride-default-rtdb.firebaseio.com";
 const FCM_URL = "https://fcm.googleapis.com/v1/projects/nalhati-ride/messages:send";
 const statePath = "notification-state.json";
+const debugPath = "notification-debug.json";
 const TIMEOUT_MS = 10000;
 
 function readLastRun() {
@@ -19,6 +20,10 @@ function writeLastRun(date) {
   fs.writeFileSync(statePath, JSON.stringify({ lastRun: date.toISOString() }, null, 2) + "\n");
 }
 
+function writeDebug(data) {
+  fs.writeFileSync(debugPath, JSON.stringify(data, null, 2) + "\n");
+}
+
 async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -30,17 +35,18 @@ async function fetchWithTimeout(url, options = {}) {
 }
 
 async function getAccessToken() {
-  console.log("Creating Google access token...");
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   const auth = new GoogleAuth({
     credentials: serviceAccount,
-    scopes: ["https://www.googleapis.com/auth/firebase.database", "https://www.googleapis.com/auth/cloud-platform"]
+    scopes: [
+      "https://www.googleapis.com/auth/firebase.database",
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
   });
   const client = await auth.getClient();
   const tokenResult = await client.getAccessToken();
   const token = typeof tokenResult === "string" ? tokenResult : tokenResult?.token;
   if (!token) throw new Error("Google access token was not returned.");
-  console.log("Google access token created.");
   return token;
 }
 
@@ -66,15 +72,12 @@ function documentToRide(doc) {
     ride[key] = firestoreString(value);
     if (value.timestampValue) ride[key] = firestoreTimestamp(value);
   }
-  return {
-    id: doc.name.split("/").pop(),
-    ...ride
-  };
+  return { id: doc.name.split("/").pop(), ...ride };
 }
 
 async function getSearchingRides(accessToken) {
-  console.log("Checking Firestore for new searching rides...");
-  const baseUrl = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
+  const baseUrl =
+    "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
     "/databases/(default)/documents/rides";
   let url = baseUrl + "?pageSize=100";
   const rides = [];
@@ -86,7 +89,6 @@ async function getSearchingRides(accessToken) {
         Accept: "application/json"
       }
     });
-
     const text = await response.text();
     if (!response.ok) {
       throw new Error("Firestore REST error " + response.status + ": " + text.slice(0, 500));
@@ -102,16 +104,14 @@ async function getSearchingRides(accessToken) {
     url = next ? baseUrl + "?pageSize=100&pageToken=" + encodeURIComponent(next) : "";
   }
 
-  console.log("Firestore returned", rides.length, "searching ride(s).");
   return rides;
 }
 
 async function getDriverTokens(accessToken) {
-  console.log("Reading driver FCM tokens from Firestore and Realtime Database...");
   const tokenMap = new Map();
 
-  // Primary source: Firestore.
-  const firestoreBase = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
+  const firestoreBase =
+    "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
     "/databases/(default)/documents/drivers";
   let url = firestoreBase + "?pageSize=100";
 
@@ -126,18 +126,14 @@ async function getDriverTokens(accessToken) {
 
     const data = text ? JSON.parse(text) : {};
     for (const doc of data.documents || []) {
-      const fields = doc.fields || {};
-      const token = firestoreString(fields.fcmToken).trim();
-      if (token) {
-        tokenMap.set(doc.name.split("/").pop(), token);
-      }
+      const token = firestoreString((doc.fields || {}).fcmToken).trim();
+      if (token) tokenMap.set(doc.name.split("/").pop(), token);
     }
 
     const next = data.nextPageToken;
     url = next ? firestoreBase + "?pageSize=100&pageToken=" + encodeURIComponent(next) : "";
   }
 
-  // Fallback/source of truth if Firestore token saving was unavailable.
   try {
     const response = await fetchWithTimeout(
       DATABASE_URL + "/drivers.json?access_token=" + encodeURIComponent(accessToken),
@@ -148,23 +144,135 @@ async function getDriverTokens(accessToken) {
       const data = JSON.parse(text) || {};
       for (const [driverId, driver] of Object.entries(data)) {
         const token = String(driver?.fcmToken || "").trim();
-        if (token && !tokenMap.has(driverId)) {
-          tokenMap.set(driverId, token);
-        }
+        if (token && !tokenMap.has(driverId)) tokenMap.set(driverId, token);
       }
-    } else {
-      console.log("Realtime Database token fallback unavailable:", response.status, text.slice(0, 300));
     }
   } catch (error) {
     console.log("Realtime Database token fallback failed:", error.message);
   }
 
-  const drivers = [...tokenMap.entries()].map(([driverId, token]) => ({
-    driverId,
-    token
-  }));
-
-  console.log("Driver FCM tokens found:", drivers.length);
-  return drivers;
+  return [...tokenMap.entries()].map(([driverId, token]) => ({ driverId, token }));
 }
 
+async function sendNotification(accessToken, ride, token) {
+  const rideType =
+    ride.rideType === "reserved" || ride.rideType === "reserve"
+      ? "🚖 Reserved Ride"
+      : "🚕 Shared Ride";
+  const body = rideType + ": " + (ride.from || "Pickup Point") + " → " + (ride.to || "Drop Point");
+
+  const message = {
+    message: {
+      token,
+      notification: {
+        title: "🔔 নতুন Booking এসেছে",
+        body
+      },
+      data: {
+        rideId: String(ride.id),
+        type: "new_booking",
+        rideType: String(ride.rideType || "shared")
+      },
+      webpush: {
+        notification: {
+          title: "🔔 নতুন Booking এসেছে",
+          body
+        },
+        fcmOptions: {
+          link: "https://nalhatiauto.github.io/nalhati-ride-driver/"
+        }
+      }
+    }
+  };
+
+  const response = await fetchWithTimeout(FCM_URL, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + accessToken,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(message)
+  });
+
+  const text = await response.text();
+  return response.ok
+    ? { ok: true, status: response.status }
+    : { ok: false, status: response.status, text: text.slice(0, 500) };
+}
+
+async function main() {
+  const lastRun = readLastRun();
+  const now = new Date();
+  const debug = {
+    checkedAt: now.toISOString(),
+    previousLastRun: lastRun.toISOString(),
+    newRides: 0,
+    driverTokensFound: 0,
+    successfulSends: 0,
+    failedSends: 0,
+    error: ""
+  };
+
+  try {
+    const accessToken = await getAccessToken();
+    const allRides = await getSearchingRides(accessToken);
+
+    const rides = allRides.filter(ride => {
+      const created = ride.createdAt instanceof Date ? ride.createdAt : new Date(ride.createdAt);
+      return !Number.isNaN(created.getTime()) && created > lastRun && created <= now;
+    });
+    debug.newRides = rides.length;
+
+    const drivers = await getDriverTokens(accessToken);
+    debug.driverTokensFound = drivers.length;
+
+    // Never advance lastRun when there is no token or a send fails.
+    // This makes failed notifications retry on the next scheduled run.
+    if (rides.length > 0 && drivers.length === 0) {
+      debug.error = "No driver FCM token found.";
+      writeDebug(debug);
+      console.error(debug.error);
+      process.exit(1);
+    }
+
+    let failed = false;
+
+    for (const ride of rides) {
+      for (const driver of drivers) {
+        try {
+          const result = await sendNotification(accessToken, ride, driver.token);
+          if (result.ok) {
+            debug.successfulSends++;
+          } else {
+            failed = true;
+            debug.failedSends++;
+            debug.error = "FCM HTTP " + result.status + ": " + result.text;
+            console.error("Notification failed:", debug.error);
+          }
+        } catch (error) {
+          failed = true;
+          debug.failedSends++;
+          debug.error = error.message;
+          console.error("Notification request error:", error.message);
+        }
+      }
+    }
+
+    if (failed) {
+      writeDebug(debug);
+      console.error("Notification failed; lastRun was NOT advanced.");
+      process.exit(1);
+    }
+
+    writeLastRun(now);
+    writeDebug(debug);
+    console.log("Notification check completed successfully.");
+  } catch (error) {
+    debug.error = error.message;
+    writeDebug(debug);
+    console.error("Notification worker failed:", error);
+    process.exit(1);
+  }
+}
+
+main();
