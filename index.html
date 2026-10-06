@@ -261,6 +261,23 @@
 
   </div>
 
+  <!-- NOTIFICATION STATUS -->
+  <div class="card">
+    <h2>🔔 Booking Notification</h2>
+    <div id="notificationStatus" class="status offline">
+      Notification প্রস্তুত হচ্ছে...
+    </div>
+    <div id="notificationMessage" class="small">
+      Booking-এর notification চালু করার জন্য নিচের বাটন ব্যবহার করুন।
+    </div>
+    <button
+      id="notificationButton"
+      class="blue"
+      onclick="retryPushNotifications()">
+      🔔 Notification চালু / আবার চেষ্টা করুন
+    </button>
+  </div>
+
 
   <!-- LIVE LOCATION -->
   <div class="card">
@@ -390,7 +407,12 @@ async function setupPushNotifications(driverId) {
       throw new Error("Notification permission denied. Chrome Site Settings-এ Notifications Allow করুন।");
     }
 
-    const registration = await navigator.serviceWorker.register("./firebase-messaging-sw.js");
+    const registration = await navigator.serviceWorker.register(
+      "./firebase-messaging-sw.js",
+      { updateViaCache: "none" }
+    );
+
+    await registration.update();
 
     const token = await getToken(messaging, {
       vapidKey: vapidKey,
@@ -398,8 +420,7 @@ async function setupPushNotifications(driverId) {
     });
 
     if (!token) {
-      console.log("FCM Token পাওয়া যায়নি");
-      return;
+      throw new Error("FCM Token তৈরি হয়নি। Chrome-এ এই site-এর Notification Allow আছে কিনা দেখুন।");
     }
 
     console.log("FCM Token তৈরি হয়েছে");
@@ -414,21 +435,49 @@ async function setupPushNotifications(driverId) {
       try {
         await setDoc(
           doc(db, "drivers", driverId),
-          { fcmToken: token },
+          { fcmToken: token, fcmUpdatedAt: new Date() },
           { merge: true }
         );
       } catch (firestoreError) {
-        console.warn("Firestore token save skipped:", firestoreError.message);
+        console.warn("Firestore token save failed:", firestoreError.message);
+        throw new Error("FCM Token Firestore-এ save হয়নি: " + firestoreError.message);
+      }
+
+      if (statusElement) {
+        statusElement.textContent = "🟢 Notification Ready";
+        statusElement.className = "status online";
+      }
+
+      if (messageElement) {
+        messageElement.textContent = "এই Driver-এর notification token Firebase-এ save হয়েছে।";
       }
 
       console.log("FCM Token প্রস্তুত হয়েছে");
     }
 
   } catch (error) {
+    if (statusElement) {
+      statusElement.textContent = "🔴 Notification চালু হয়নি";
+      statusElement.className = "status offline";
+    }
+
+    if (messageElement) {
+      messageElement.textContent = error.message;
+    }
+
     alert("FCM Error: " + error.message);
     console.error("FCM setup failed:", error);
   }
   }
+
+  window.retryPushNotifications = function() {
+    if (!currentUser) {
+      alert("Firebase connection এখনো প্রস্তুত নয়।");
+      return;
+    }
+    setupPushNotifications(currentUser.uid);
+  };
+
   let currentUser = null;
 
   let locationWatchId = null;
