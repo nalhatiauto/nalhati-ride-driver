@@ -107,20 +107,18 @@ async function getSearchingRides(accessToken) {
 }
 
 async function getDriverTokens(accessToken) {
-  console.log("Reading driver FCM tokens from Firestore...");
-  const baseUrl = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
+  console.log("Reading driver FCM tokens from Firestore and Realtime Database...");
+  const tokenMap = new Map();
+
+  // Primary source: Firestore.
+  const firestoreBase = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID +
     "/databases/(default)/documents/drivers";
-  let url = baseUrl + "?pageSize=100";
-  const drivers = [];
+  let url = firestoreBase + "?pageSize=100";
 
   while (url) {
     const response = await fetchWithTimeout(url, {
-      headers: {
-        Authorization: "Bearer " + accessToken,
-        Accept: "application/json"
-      }
+      headers: { Authorization: "Bearer " + accessToken, Accept: "application/json" }
     });
-
     const text = await response.text();
     if (!response.ok) {
       throw new Error("Firestore drivers REST error " + response.status + ": " + text.slice(0, 500));
@@ -129,117 +127,44 @@ async function getDriverTokens(accessToken) {
     const data = text ? JSON.parse(text) : {};
     for (const doc of data.documents || []) {
       const fields = doc.fields || {};
-      const token = firestoreString(fields.fcmToken);
-      if (token.trim()) {
-        drivers.push({
-          driverId: doc.name.split("/").pop(),
-          token: token.trim()
-        });
+      const token = firestoreString(fields.fcmToken).trim();
+      if (token) {
+        tokenMap.set(doc.name.split("/").pop(), token);
       }
     }
 
     const next = data.nextPageToken;
-    url = next ? baseUrl + "?pageSize=100&pageToken=" + encodeURIComponent(next) : "";
+    url = next ? firestoreBase + "?pageSize=100&pageToken=" + encodeURIComponent(next) : "";
   }
+
+  // Fallback/source of truth if Firestore token saving was unavailable.
+  try {
+    const response = await fetchWithTimeout(
+      DATABASE_URL + "/drivers.json?access_token=" + encodeURIComponent(accessToken),
+      { headers: { Accept: "application/json" } }
+    );
+    const text = await response.text();
+    if (response.ok && text) {
+      const data = JSON.parse(text) || {};
+      for (const [driverId, driver] of Object.entries(data)) {
+        const token = String(driver?.fcmToken || "").trim();
+        if (token && !tokenMap.has(driverId)) {
+          tokenMap.set(driverId, token);
+        }
+      }
+    } else {
+      console.log("Realtime Database token fallback unavailable:", response.status, text.slice(0, 300));
+    }
+  } catch (error) {
+    console.log("Realtime Database token fallback failed:", error.message);
+  }
+
+  const drivers = [...tokenMap.entries()].map(([driverId, token]) => ({
+    driverId,
+    token
+  }));
 
   console.log("Driver FCM tokens found:", drivers.length);
   return drivers;
 }
 
-async function sendNotification(accessToken, ride, token) {
-  const rideType = ride.rideType === "reserve" ? "Reserve Ride" : "Share Ride";
-  const from = ride.from || "Pickup Point";
-  const to = ride.to || "Drop Point";
-
-  const message = {
-    message: {
-      token,
-      notification: {
-        title: "🔔 নতুন Booking এসেছে",
-        body: rideType + ": " + from + " → " + to
-      },
-      data: {
-        rideId: String(ride.id),
-        type: "new_booking",
-        rideType: String(ride.rideType || "share")
-      },
-      webpush: {
-        notification: {
-          title: "🔔 নতুন Booking এসেছে",
-          body: rideType + ": " + from + " → " + to
-        },
-        fcmOptions: {
-          link: "https://nalhatiauto.github.io/nalhati-ride-driver/"
-        }
-      }
-    }
-  };
-
-  const response = await fetchWithTimeout(FCM_URL, {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + accessToken,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(message)
-  });
-
-  const text = await response.text();
-  if (!response.ok) {
-    return { ok: false, status: response.status, text };
-  }
-  return { ok: true, status: response.status };
-}
-
-async function main() {
-  console.log("Notification worker started.");
-  const lastRun = readLastRun();
-  const now = new Date();
-  console.log("Looking for rides created after:", lastRun.toISOString());
-
-  const accessToken = await getAccessToken();
-  let allRides = [];
-  try {
-    allRides = await getSearchingRides(accessToken);
-  } catch (error) {
-    console.error("Firestore check failed:", error.message);
-    console.log("Skipping this run without changing notification state.");
-    process.exit(1);
-  }
-
-  const rides = allRides.filter(ride => {
-    const created = ride.createdAt instanceof Date
-      ? ride.createdAt
-      : new Date(ride.createdAt);
-    return !Number.isNaN(created.getTime()) && created > lastRun && created <= now;
-  });
-
-  console.log("New rides to notify:", rides.length);
-
-  const drivers = await getDriverTokens(accessToken);
-
-  for (const ride of rides) {
-    console.log("Sending notification for ride", ride.id, "to", drivers.length, "driver(s)...");
-    for (const driver of drivers) {
-      try {
-        const result = await sendNotification(accessToken, ride, driver.token);
-        if (result.ok) {
-          console.log("Notification sent successfully to driver", driver.driverId);
-        } else {
-          console.log("Notification failed for driver", driver.driverId,
-            "HTTP", result.status, result.text.slice(0, 300));
-        }
-      } catch (error) {
-        console.log("Notification request error for driver", driver.driverId, error.message);
-      }
-    }
-  }
-
-  writeLastRun(now);
-  console.log("Notification check completed successfully.");
-}
-
-main().catch(error => {
-  console.error("Notification worker failed:", error);
-  process.exit(1);
-});
