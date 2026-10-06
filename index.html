@@ -443,26 +443,26 @@ async function setupPushNotifications(driverId) {
         throw new Error("FCM Token Firestore-এ save হয়নি: " + firestoreError.message);
       }
 
-      if (statusElement) {
-        statusElement.textContent = "🟢 Notification Ready";
-        statusElement.className = "status online";
+      if (notificationStatus) {
+        notificationStatus.textContent = "🟢 Notification Ready";
+        notificationStatus.className = "status online";
       }
 
-      if (messageElement) {
-        messageElement.textContent = "এই Driver-এর notification token Firebase-এ save হয়েছে।";
+      if (notificationMessage) {
+        notificationMessage.textContent = "এই Driver-এর notification token Firebase-এ save হয়েছে।";
       }
 
       console.log("FCM Token প্রস্তুত হয়েছে");
     }
 
   } catch (error) {
-    if (statusElement) {
-      statusElement.textContent = "🔴 Notification চালু হয়নি";
-      statusElement.className = "status offline";
+    if (notificationStatus) {
+      notificationStatus.textContent = "🔴 Notification চালু হয়নি";
+      notificationStatus.className = "status offline";
     }
 
-    if (messageElement) {
-      messageElement.textContent = error.message;
+    if (notificationMessage) {
+      notificationMessage.textContent = error.message;
     }
 
     alert("FCM Error: " + error.message);
@@ -532,6 +532,12 @@ async function setupPushNotifications(driverId) {
   /* =========================
      ELEMENTS
   ========================== */
+
+  const notificationStatus =
+    document.getElementById("notificationStatus");
+
+  const notificationMessage =
+    document.getElementById("notificationMessage");
 
   const firebaseStatus =
     document.getElementById("firebaseStatus");
