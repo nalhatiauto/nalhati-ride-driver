@@ -399,6 +399,7 @@ async function setupPushNotifications(driverId) {
 
     // Wait until the Firebase Messaging service worker is ready.
     const readyRegistration = await navigator.serviceWorker.ready;
+    pushRegistration = readyRegistration;
 
     const token = await getToken(messaging, {
       vapidKey: vapidKey,
