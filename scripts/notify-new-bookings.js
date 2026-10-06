@@ -206,28 +206,41 @@ async function main() {
   const debug = {
     checkedAt: now.toISOString(),
     previousLastRun: lastRun.toISOString(),
+    searchingRidesFound: 0,
     newRides: 0,
+    newRideDetails: [],
     driverTokensFound: 0,
     successfulSends: 0,
     failedSends: 0,
     error: ""
   };
 
+  // Write an initial diagnostic immediately so even an early failure leaves evidence.
+  writeDebug(debug);
+
   try {
     const accessToken = await getAccessToken();
     const allRides = await getSearchingRides(accessToken);
+    debug.searchingRidesFound = allRides.length;
 
     const rides = allRides.filter(ride => {
       const created = ride.createdAt instanceof Date ? ride.createdAt : new Date(ride.createdAt);
       return !Number.isNaN(created.getTime()) && created > lastRun && created <= now;
     });
+
     debug.newRides = rides.length;
+    debug.newRideDetails = rides.map(ride => ({
+      id: ride.id,
+      rideType: ride.rideType || "",
+      status: ride.status || "",
+      createdAt: ride.createdAt instanceof Date ? ride.createdAt.toISOString() : String(ride.createdAt || "")
+    }));
+    writeDebug(debug);
 
     const drivers = await getDriverTokens(accessToken);
     debug.driverTokensFound = drivers.length;
+    writeDebug(debug);
 
-    // Never advance lastRun when there is no token or a send fails.
-    // This makes failed notifications retry on the next scheduled run.
     if (rides.length > 0 && drivers.length === 0) {
       debug.error = "No driver FCM token found.";
       writeDebug(debug);
@@ -249,10 +262,12 @@ async function main() {
             debug.error = "FCM HTTP " + result.status + ": " + result.text;
             console.error("Notification failed:", debug.error);
           }
+          writeDebug(debug);
         } catch (error) {
           failed = true;
           debug.failedSends++;
           debug.error = error.message;
+          writeDebug(debug);
           console.error("Notification request error:", error.message);
         }
       }
