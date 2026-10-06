@@ -480,6 +480,43 @@ async function setupPushNotifications(driverId) {
 
   let currentUser = null;
 
+  // Immediate notification for a new booking while Driver App is open.
+  let bookingSnapshotReady = false;
+  const seenSearchingBookings = new Set();
+
+  function showImmediateBookingNotification(ride) {
+    if (!("Notification" in window) || Notification.permission !== "granted") {
+      return;
+    }
+
+    const rideType =
+      ride.rideType === "reserved"
+        ? "🚖 Reserved Ride"
+        : "🚕 Shared Ride";
+
+    const title = "🔔 নতুন Booking এসেছে";
+    const body =
+      rideType + ": " +
+      (ride.from || "Pickup") +
+      " → " +
+      (ride.to || "Drop Point");
+
+    try {
+      const notification = new Notification(title, {
+        body: body,
+        tag: "booking-" + ride.id,
+        requireInteraction: true
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    } catch (error) {
+      console.warn("Immediate notification failed:", error);
+    }
+  }
+
   let locationWatchId = null;
 
   let liveLocationOn = false;
@@ -578,12 +615,33 @@ async function setupPushNotifications(driverId) {
 
           const data = rideDoc.data();
 
-          rides.push({
+          const ride = {
             id: rideDoc.id,
             ...data
-          });
+          };
+
+          rides.push(ride);
+
+          // Fire an immediate browser notification for genuinely new
+          // searching bookings. The first snapshot only establishes
+          // the existing bookings and does not notify for old rides.
+          if (bookingSnapshotReady && ride.status === "searching") {
+            if (!seenSearchingBookings.has(ride.id)) {
+              seenSearchingBookings.add(ride.id);
+              showImmediateBookingNotification(ride);
+            }
+          }
 
         });
+
+        if (!bookingSnapshotReady) {
+          rides.forEach((ride) => {
+            if (ride.status === "searching") {
+              seenSearchingBookings.add(ride.id);
+            }
+          });
+          bookingSnapshotReady = true;
+        }
 
 
         /*
