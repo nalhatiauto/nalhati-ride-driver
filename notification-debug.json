@@ -1,18 +1,11 @@
 {
-  "checkedAt": "2026-10-07T23:56:12.956Z",
-  "previousLastRun": "2026-10-07T23:40:55.000Z",
-  "searchingRidesFound": 1,
-  "newRides": 1,
-  "newRideDetails": [
-    {
-      "id": "7LFPZBHqAC5jq6QUWQEh",
-      "rideType": "share",
-      "status": "searching",
-      "createdAt": "2026-10-07T23:55:26.628Z"
-    }
-  ],
+  "checkedAt": "2026-10-08T00:28:53.671Z",
+  "previousLastRun": "2026-10-07T23:56:12.956Z",
+  "searchingRidesFound": 0,
+  "newRides": 0,
+  "newRideDetails": [],
   "driverTokensFound": 1,
-  "successfulSends": 1,
+  "successfulSends": 0,
   "failedSends": 0,
   "error": ""
 }
