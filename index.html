@@ -485,9 +485,9 @@ async function setupPushNotifications(driverId) {
     }
 
     const rideType =
-      ride.rideType === "reserved"
-        ? "🚖 Reserved Ride"
-        : "🚕 Shared Ride";
+      ride.rideType === "reserve" || ride.rideType === "reserved" || ride.type === "reserve"
+        ? "🚖 Reserve Auto"
+        : "🚕 Share Ride";
 
     const title = "🔔 নতুন Booking এসেছে";
     const body =
