@@ -1,12 +1,12 @@
 {
-  "name": "Nalhati Ride Driver",
-  "short_name": "Ride Driver",
+  "name": "বন্দে ভারত এক্সপ্রেস — চালক অ্যাপ",
+  "short_name": "বন্দে ভারত চালক",
   "start_url": "/nalhati-ride-driver/",
   "scope": "/nalhati-ride-driver/",
   "display": "standalone",
   "background_color": "#f2f4f7",
   "theme_color": "#2196f3",
-  "description": "Nalhati Ride Driver App",
+  "description": "বন্দে ভারত এক্সপ্রেস চালক অ্যাপ",
   "icons": [
     {
       "src": "/nalhati-ride-driver/icon-192.png",
