@@ -291,6 +291,38 @@
 
   </div>
 
+  <!-- SHARE RIDE ROUTE AVAILABILITY -->
+  <div class="card">
+    <h2>👥 Share Ride Availability</h2>
+    <p class="small">যে রুটে শেয়ার রাইড নিতে চান সেটি বেছে নিয়ে চালু করুন। Passenger App এই তথ্য দেখে Available দেখাবে।</p>
+    <label for="shareRideFrom">From / কোথা থেকে</label>
+    <select id="shareRideFrom">
+      <option value="nalhati">Nalhati / নলহাটি</option>
+      <option value="diha">Diha / দিহা</option>
+      <option value="basanta">Basanta / বসন্ত</option>
+      <option value="rampurhat">Rampurhat / রামপুরহাট</option>
+      <option value="murarai">Murarai / মুরারই</option>
+      <option value="lohapur">Lohapur / লোহাপুর</option>
+      <option value="kukhura">Kukhura / কুখুরা</option>
+      <option value="kanior">Kanior / কানিওর</option>
+    </select>
+    <label for="shareRideTo">To / কোথায় যাবেন</label>
+    <select id="shareRideTo">
+      <option value="rampurhat">Rampurhat / রামপুরহাট</option>
+      <option value="nalhati">Nalhati / নলহাটি</option>
+      <option value="diha">Diha / দিহা</option>
+      <option value="basanta">Basanta / বসন্ত</option>
+      <option value="murarai">Murarai / মুরারই</option>
+      <option value="lohapur">Lohapur / লোহাপুর</option>
+      <option value="kukhura">Kukhura / কুখুরা</option>
+      <option value="kanior">Kanior / কানিওর</option>
+    </select>
+    <div id="shareRideStatus" class="status offline" style="margin:12px 0;">🔴 Share Ride বন্ধ</div>
+    <button id="enableShareRideBtn" class="green" type="button">🟢 এই রুটে Share Ride চালু করুন</button>
+    <button id="disableShareRideBtn" class="red" type="button" disabled>🔴 Share Ride বন্ধ করুন</button>
+    <div id="shareRideMessage" class="small" style="margin-top:10px;">Share Ride চালু করলে যাত্রীরা এই রুটে availability পরীক্ষা করতে পারবে।</div>
+  </div>
+
 
   <!-- BOOKINGS -->
   <div class="card">
@@ -338,6 +370,7 @@ import {
   import {
     getDatabase,
     ref,
+    get,
     set
   }
     from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
@@ -524,6 +557,81 @@ async function setupPushNotifications(driverId) {
   const stopLocationBtn =
     document.getElementById("stopLocationBtn");
 
+  const shareRideFrom = document.getElementById("shareRideFrom");
+  const shareRideTo = document.getElementById("shareRideTo");
+  const shareRideStatus = document.getElementById("shareRideStatus");
+  const enableShareRideBtn = document.getElementById("enableShareRideBtn");
+  const disableShareRideBtn = document.getElementById("disableShareRideBtn");
+  const shareRideMessage = document.getElementById("shareRideMessage");
+
+  function renderShareRideAvailability(data) {
+    const enabled = !!(data && data.enabled === true);
+    if (data && data.from) shareRideFrom.value = data.from;
+    if (data && data.to) shareRideTo.value = data.to;
+    shareRideStatus.textContent = enabled
+      ? "🟢 Share Ride চালু: " + shareRideFrom.options[shareRideFrom.selectedIndex].text + " → " + shareRideTo.options[shareRideTo.selectedIndex].text
+      : "🔴 Share Ride বন্ধ";
+    shareRideStatus.className = enabled ? "status online" : "status offline";
+    enableShareRideBtn.disabled = enabled;
+    disableShareRideBtn.disabled = !enabled;
+    shareRideMessage.textContent = enabled
+      ? "এই রুটটি Passenger App-এ Available দেখাবে। যাত্রা না করলে Share Ride বন্ধ করে দিন।"
+      : "রুট বেছে নিয়ে Share Ride চালু করুন। চালু না থাকলে Passenger App-এ Available দেখাবে না।";
+  }
+
+  async function loadShareRideAvailability(driverId) {
+    try {
+      const snap = await get(ref(realtimeDb, "shareRideAvailability/" + driverId));
+      renderShareRideAvailability(snap.exists() ? snap.val() : null);
+    } catch (error) {
+      shareRideMessage.textContent = "বর্তমান Share Ride সেটিং পড়া যায়নি। ডাটাবেস অনুমতি পরীক্ষা করুন।";
+      console.error("Share ride availability read failed:", error);
+    }
+  }
+
+  enableShareRideBtn.addEventListener("click", async () => {
+    if (!currentUser) { shareRideMessage.textContent = "Firebase সংযোগের জন্য অপেক্ষা করুন।"; return; }
+    if (shareRideFrom.value === shareRideTo.value) { shareRideMessage.textContent = "From এবং To আলাদা হতে হবে।"; return; }
+    enableShareRideBtn.disabled = true;
+    try {
+      const data = {
+        driverId: currentUser.uid,
+        from: shareRideFrom.value,
+        to: shareRideTo.value,
+        enabled: true,
+        updatedAt: Date.now()
+      };
+      await set(ref(realtimeDb, "shareRideAvailability/" + currentUser.uid), data);
+      renderShareRideAvailability(data);
+    } catch (error) {
+      shareRideMessage.textContent = "Share Ride চালু করা যায়নি। Firebase database rules পরীক্ষা করুন।";
+      enableShareRideBtn.disabled = false;
+      console.error("Share ride enable failed:", error);
+    }
+  });
+
+  disableShareRideBtn.addEventListener("click", async () => {
+    if (!currentUser) return;
+    disableShareRideBtn.disabled = true;
+    try {
+      const snap = await get(ref(realtimeDb, "shareRideAvailability/" + currentUser.uid));
+      const previous = snap.exists() ? snap.val() : {};
+      const data = {
+        driverId: currentUser.uid,
+        from: previous.from || shareRideFrom.value,
+        to: previous.to || shareRideTo.value,
+        enabled: false,
+        updatedAt: Date.now()
+      };
+      await set(ref(realtimeDb, "shareRideAvailability/" + currentUser.uid), data);
+      renderShareRideAvailability(data);
+    } catch (error) {
+      shareRideMessage.textContent = "Share Ride বন্ধ করা যায়নি। আবার চেষ্টা করুন।";
+      disableShareRideBtn.disabled = false;
+      console.error("Share ride disable failed:", error);
+    }
+  });
+
 
   /* =========================
      LOGIN
@@ -568,6 +676,7 @@ async function setupPushNotifications(driverId) {
     // can never stop Firebase login or booking connection.
     setupPushNotifications(user.uid);
     listenForBookings();
+    loadShareRideAvailability(user.uid);
 
   }, (error) => {
     console.error("Firebase Auth error:", error);
