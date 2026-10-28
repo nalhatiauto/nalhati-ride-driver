@@ -919,51 +919,23 @@ async function setupPushNotifications(driverId) {
        NEW SEARCHING BOOKING
     ========================== */
 
-    else if (ride.status === "searching" && rideType === "share") {
-
-      html += `
-        <div class="fare-box">
-          <div style="font-weight:700;">💰 Share Ride মোট ভাড়া: ₹${Number(ride.fare || ride.estimatedFare || 0)}</div>
-          <div class="small">👥 ${Math.max(1, Number(ride.passengers) || 1)} জন × প্রতি জন ₹${Number(ride.farePerPassenger || (Number(ride.fare || ride.estimatedFare || 0) / Math.max(1, Number(ride.passengers) || 1)))}</div>
-          <p class="small">রুটে যেতে পারবেন হলে Confirm করুন। না পারলে Cancel করুন—যাত্রী সঙ্গে সঙ্গে জানতে পারবেন।</p>
-          <button class="green" onclick="confirmShareRide('${ride.id}')">✅ Share Booking Confirm</button>
-          <button class="red" onclick="cancelShareRide('${ride.id}')" style="margin-top:8px;">❌ এই রুটে গাড়ি নেই — Cancel</button>
-        </div>
-      `;
-
-    }
     else if (ride.status === "searching") {
 
       html += `
-
         <div class="fare-box">
-
-          <label>
-            💰 Passenger-কে ভাড়া পাঠান
-          </label>
-
+          <label>💰 যাত্রীকে ভাড়া জানান</label>
           <input
             type="number"
             min="1"
             step="1"
             id="fare-${ride.id}"
-            placeholder="যেমন 150"
+            placeholder="ভাড়া লিখুন (যেমন 150)"
           >
-
-          <button
-            class="orange"
-            onclick="sendFare('${ride.id}')">
-
-            💰 ভাড়া পাঠান
-
-          </button>
-
+          <button class="orange" onclick="sendFare('${ride.id}')">💰 ভাড়া পাঠান</button>
         </div>
-
       `;
 
     }
-
 
     /* =========================
        FARE SENT
