@@ -783,6 +783,11 @@ async function setupPushNotifications(driverId) {
     const time =
       ride.time || "-";
 
+    const tripTypeLabel = ride.tripType === "round_trip" ? "যাওয়া–আসা (আপ-ডাউন)" : "শুধু যাওয়া";
+    const returnWaitLabel = ride.tripType === "round_trip" && ride.returnAfterHours
+      ? `গন্তব্যে ${ride.returnAfterHours} ঘণ্টা থাকার পর ফিরবেন`
+      : "";
+
     const note =
       ride.note || "কোনো Note নেই";
 
@@ -842,6 +847,12 @@ async function setupPushNotifications(driverId) {
 
       </div>
 
+
+      <div style="margin-top:10px;padding:10px;background:#eef6ff;border-radius:8px;">
+        <div class="label">🧭 যাত্রার ধরন</div>
+        <div class="value">${escapeHtml(tripTypeLabel)}</div>
+        ${returnWaitLabel ? `<div class="value" style="margin-top:6px;">⏳ ${escapeHtml(returnWaitLabel)}</div>` : ""}
+      </div>
 
       <div class="row">
 
